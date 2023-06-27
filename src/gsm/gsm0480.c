@@ -833,7 +833,7 @@ struct msgb *gsm0480_gen_ussd_resp_7bit(uint8_t invoke_id, const char *text)
  */
 struct msgb *gsm0480_gen_ussd_resp_ucs2(uint8_t invoke_id, const char *text, uint8_t len)
 {
-	return gsm0480_gen_ussd_resp_dcs(invoke_id, text, len, 0x48);
+	return gsm0480_gen_ussd_resp_dcs(invoke_id, text, len, 0x58);
 }
 
 
