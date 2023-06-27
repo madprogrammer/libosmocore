@@ -769,9 +769,10 @@ struct msgb *gsm0480_msgb_alloc_name(const char *name)
 
 /*! Generate a USSD ReturnResult component containing a string in default GSM alphabet.
  * \param[in] invoke_id		InvokeID of the request to which we respond
- * \param[in] text		USSD text in ASCII; to be encoded as GSM 7-but alphabet
+ * \param[in] text		Pointer to USSD response payload
+ * \param[in] dcs		Data coding value to use for text
  */
-struct msgb *gsm0480_gen_ussd_resp_7bit(uint8_t invoke_id, const char *text)
+struct msgb *gsm0480_gen_ussd_resp_dcs(uint8_t invoke_id, const char *text, uint8_t len, uint8_t dcs)
 {
 	struct msgb *msg;
 	uint8_t *ptr8;
@@ -782,15 +783,20 @@ struct msgb *gsm0480_gen_ussd_resp_7bit(uint8_t invoke_id, const char *text)
 		return NULL;
 
 	/* First put the payload text into the message */
-	ptr8 = msgb_put(msg, 0);
-	gsm_7bit_encode_n_ussd(ptr8, msgb_tailroom(msg), text, &response_len);
-	msgb_put(msg, response_len);
+	if (dcs == 0x0F) {
+		ptr8 = msgb_put(msg, 0);
+		gsm_7bit_encode_n_ussd(ptr8, msgb_tailroom(msg), text, &response_len);
+		msgb_put(msg, response_len);
+	} else {
+		ptr8 = msgb_put(msg, len);
+		memcpy(ptr8, text, len);
+	}
 
 	/* Then wrap it as an Octet String */
 	msgb_push_tl(msg, ASN1_OCTET_STRING_TAG);
 
 	/* Pre-pend the DCS octet string */
-	msgb_tlv1_push(msg, ASN1_OCTET_STRING_TAG, 0x0F);
+	msgb_tlv1_push(msg, ASN1_OCTET_STRING_TAG, dcs);
 
 	/* Then wrap these as a Sequence */
 	msgb_push_tl(msg, GSM_0480_SEQUENCE_TAG);
@@ -810,6 +816,26 @@ struct msgb *gsm0480_gen_ussd_resp_7bit(uint8_t invoke_id, const char *text)
 
 	return msg;
 }
+
+/*! Generate a USSD ReturnResult component containing a string in default GSM alphabet.
+ * \param[in] invoke_id		InvokeID of the request to which we respond
+ * \param[in] text		USSD text in ASCII; to be encoded as GSM 7-but alphabet
+ */
+struct msgb *gsm0480_gen_ussd_resp_7bit(uint8_t invoke_id, const char *text)
+{
+	return gsm0480_gen_ussd_resp_dcs(invoke_id, text, 0, 0x0F);
+}
+
+/*! Generate a USSD ReturnResult component containing a string in UCS2 alphabet.
+ * \param[in] invoke_id		InvokeID of the request to which we respond
+ * \param[in] text		USSD text in UCS2 encoding
+ * \param[in] len		Length of the text in bytes
+ */
+struct msgb *gsm0480_gen_ussd_resp_ucs2(uint8_t invoke_id, const char *text, uint8_t len)
+{
+	return gsm0480_gen_ussd_resp_dcs(invoke_id, text, len, 0x48);
+}
+
 
 /*! Legacy helper: Generate USSD response including FACILITY IE + L3 header.
  *
